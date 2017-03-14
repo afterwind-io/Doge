@@ -1,0 +1,15 @@
+{
+    "extends": "standard",
+    "plugins": [
+        "standard",
+        "promise"
+    ],
+    "globals": {
+      "expect": true,
+      "describe": true,
+      "it": true
+    },
+    "rules": {
+      "camelcase": "off"
+    }
+}

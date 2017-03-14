@@ -104,6 +104,7 @@ const SYMBOL_END_BRACKET = ']'
 const SYMBOL_START_VALUE = '('
 const SYMBOL_END_VALUE = ')'
 const SYMBOL_ATTR_DEF = ':'
+const SYMBOL_COMMA = ','
 const SYMBOL_LINE_BREAK = '\n'
 const SYMBOL_SPACE = ' '
 const RESERVE_TYPE = 'type'
@@ -119,6 +120,7 @@ const RESERVED_SYMBOLS = new Set([
   SYMBOL_START_VALUE,
   SYMBOL_END_VALUE,
   SYMBOL_ATTR_DEF,
+  SYMBOL_COMMA,
   SYMBOL_LINE_BREAK,
   SYMBOL_SPACE
 ])
@@ -151,6 +153,18 @@ class Compass {
   }
 }
 
+/**
+ * 状态表：
+ *    attr：模板树字段定义
+ *    verb：保留关键字定义
+ *    value：值定义
+ *    attr_start
+ *    attr_end
+ *    verb_start
+ *    verb_end
+ *    value_start
+ *    value_end
+ */
 class StateMgr {
   constructor () {
     this._state = 'start'
@@ -167,58 +181,72 @@ class StateMgr {
 
     switch (char) {
       case SYMBOL_START_BRACE:
-        if (state === 'start' || state === 'verb') {
-          this._state = 'attr'
-        } else if (state === 'value') {
-          this._state = 'value'
+        if (state === 'start' || state === 'attr_end') {
+          this._state = 'attr_start'
+        } else if (state === 'value_start') {
+          break
         } else {
           error = 'Wrong "{" difinition'
         }
         break
       case SYMBOL_END_BRACE:
-        if (state === 'attr' || state === 'verb') {
-          this._state = 'attr'
-        } else if (state === 'value') {
-          this._state = 'value'
+        if (state === 'value_end' || state === 'verb_end') {
+          this._state = 'attr_start'
+        } else if (state === 'value_start') {
+          break
         } else {
-          error = 'Wrong "{" difinition'
+          error = 'Wrong "}" difinition'
         }
         break
       case SYMBOL_ATTR_DEF:
-        if (state === 'attr') {
-          this._state = 'verb'
-        } else if (state === 'value') {
-          this._state = 'value'
+        if (state === 'attr_start') {
+          this._state = 'attr_end'
+        } else if (state === 'value_start') {
+          break
         } else {
           error = 'Wrong ":" difinition'
         }
         break
       case SYMBOL_START_VALUE:
-        if (state === 'verb') {
-          this._state = 'value'
+        if (state === 'verb_start') {
+          this._state = 'value_start'
         } else {
           error = 'Wrong "(" difinition'
         }
         break
       case SYMBOL_END_VALUE:
-        if (state === 'value') {
-          this._state = 'verb'
+        if (state === 'value_start') {
+          this._state = 'value_end'
         } else {
           error = 'Wrong ")" difinition'
         }
         break
+      case SYMBOL_COMMA:
+        if (state === 'verb_start' || state === 'value_end') {
+          this._state = 'verb_end'
+        } else if (state === 'value_start') {
+          break
+        } else {
+          error = 'Wrong "," difinition'
+        }
+        break
       case SYMBOL_LINE_BREAK:
-        if (state === 'attr') {
-          this._state = 'attr'
-        } else if (state === 'verb') {
-          this._state = 'attr'
-        } else if (state === 'value') {
-          this._state = 'value'
+        if (state === 'attr_start') {
+          break
+        } else if (state === 'value_end' || state === 'verb_start') {
+          this._state = 'attr_start'
+        } else if (state === 'value_start') {
+          break
         } else {
           error = 'Wrong line break'
         }
         break
+      case SYMBOL_SPACE:
+        break
       default:
+        if (state === 'attr_end' || state === 'verb_end') {
+          this._state = 'verb_start'
+        }
         break
     }
 
@@ -252,9 +280,9 @@ class StateDebugger {
   store (char, phase) {
     let byte
 
-    if (phase === 'attr') byte = chalk.white(char)
-    if (phase === 'verb') byte = chalk.yellow(char)
-    if (phase === 'value') byte = chalk.green(char)
+    if (phase === 'attr_start') byte = chalk.white(char)
+    if (phase === 'verb_start') byte = chalk.yellow(char)
+    if (phase === 'value_start') byte = chalk.green(char)
     if (RESERVED_SYMBOLS.has(char)) byte = chalk.red(char)
 
     this._info += byte
@@ -332,11 +360,12 @@ class Tokenizer {
 let schema = `{
   a: type(string, wow), raw, in(foo), fold(bar, barz)
   aa: type(object, {
-    a: 'doge' 
+    a: 'doge'
   })
   ab: type(array, [1, 2, 3])
-  b:: {
+  b: {
     c: raw
+    e: type(number)
   }
   d: [{ e: in(f) }]
   ...

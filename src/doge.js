@@ -106,6 +106,7 @@ const SYMBOL_END_VALUE = ')'
 const SYMBOL_ATTR_DEF = ':'
 const SYMBOL_COMMA = ','
 const SYMBOL_HYPHEN = '-'
+const SYMBOL_SPREAD = '*'
 const SYMBOL_LINE_BREAK = '\n'
 const SYMBOL_SPACE = ' '
 const RESERVE_TYPE = 'type'
@@ -122,7 +123,8 @@ const RESERVED_SYMBOLS = new Set([
   SYMBOL_END_VALUE,
   SYMBOL_ATTR_DEF,
   SYMBOL_COMMA,
-  SYMBOL_HYPHEN
+  SYMBOL_HYPHEN,
+  SYMBOL_SPREAD
 ])
 
 class Compass {
@@ -184,22 +186,40 @@ class StateMgr {
     let error = void 0
 
     switch (char) {
-      case SYMBOL_START_OBJECT:
+      case SYMBOL_START_ARRAY:
         if (state === 'start' || state === 'attr_end') {
+          this._state = 'array_start'
+        } else if (state === 'value_start') {
+          break
+        } else {
+          error = `Wrong "${SYMBOL_START_ARRAY}" difinition`
+        }
+        break
+      case SYMBOL_END_ARRAY:
+        if (state === 'object_end') {
+          this._state = 'array_end'
+        } else if (state === 'value_start') {
+          break
+        } else {
+          error = `Wrong "${SYMBOL_END_ARRAY}" difinition`
+        }
+        break
+      case SYMBOL_START_OBJECT:
+        if (state === 'start' || state === 'array_start' || state === 'attr_end') {
           this._state = 'object_start'
         } else if (state === 'value_start') {
           break
         } else {
-          error = 'Wrong "{" difinition'
+          error = `Wrong "${SYMBOL_START_OBJECT}" difinition`
         }
         break
       case SYMBOL_END_OBJECT:
-        if (state === 'value_end' || state === 'verb_start') {
+        if (state === 'value_end' || state === 'verb_start' || state === 'array_end') {
           this._state = 'object_end'
         } else if (state === 'value_start') {
           break
         } else {
-          error = 'Wrong "}" difinition'
+          error = `Wrong "${SYMBOL_END_OBJECT}" difinition`
         }
         break
       case SYMBOL_ATTR_DEF:
@@ -208,7 +228,7 @@ class StateMgr {
         } else if (state === 'value_start') {
           break
         } else {
-          error = 'Wrong ":" difinition'
+          error = `Wrong "${SYMBOL_ATTR_DEF}" difinition`
         }
         break
       case SYMBOL_HYPHEN:
@@ -217,31 +237,33 @@ class StateMgr {
         } else if (state === 'verb_start') {
           this._state = 'verb_end'
         } else {
-          error = 'Wrong "-" difinition'
+          error = `Wrong "${SYMBOL_HYPHEN}" difinition`
         }
         break
       case SYMBOL_START_VALUE:
         if (state === 'verb_start') {
           this._state = 'value_start'
         } else {
-          error = 'Wrong "(" difinition'
+          error = `Wrong "${SYMBOL_START_VALUE}" difinition`
         }
         break
       case SYMBOL_END_VALUE:
         if (state === 'value_start') {
           this._state = 'value_end'
         } else {
-          error = 'Wrong ")" difinition'
+          error = `Wrong "${SYMBOL_END_VALUE}" difinition`
         }
         break
       case SYMBOL_COMMA:
-        if (state === 'verb_start' || state === 'value_end' || state === 'object_end') {
+        if (state === 'verb_start' || state === 'value_end' || state === 'object_end' || state === 'array_end') {
           this._state = 'attr_start'
         } else if (state === 'value_start') {
           break
         } else {
-          error = 'Wrong "," difinition'
+          error = `Wrong ${SYMBOL_COMMA} difinition`
         }
+        break
+      case SYMBOL_SPREAD:
         break
       case SYMBOL_LINE_BREAK:
       case SYMBOL_SPACE:
@@ -282,7 +304,7 @@ class StateDebugger {
   }
 
   reset () {
-    this._info = padRight('1', 3) + '| '
+    this._info = `${padRight('1', 3)}| `
     this._row = 1
   }
 
@@ -304,7 +326,7 @@ class StateDebugger {
     this._info += byte
 
     if (char === SYMBOL_LINE_BREAK) {
-      this._info += padRight(++this._row, 3) + '| '
+      this._info += `${padRight(++this._row, 3)}| `
     }
   }
 
@@ -326,13 +348,15 @@ class Tokenizer {
     let results = []
 
     let length = this._tokens.length
-    for (let i = 0, char; i < length; i++) {
+    for (let i = -1, char; ++i < length;) {
       char = this._tokens[i]
 
       let stack = this._stateMgr.push(char)
       if (stack.error === void 0) {
         if (stack.phase === lastPhase) {
-          token += char === SYMBOL_SPACE ? '' : char
+          if (char !== SYMBOL_SPACE && char !== SYMBOL_LINE_BREAK) {
+            token += char
+          }
         } else {
           results.push({
             type: lastPhase,
@@ -341,15 +365,15 @@ class Tokenizer {
             col: this._compass.col
           })
 
-          token = ''
+          token = char
         }
 
         lastPhase = stack.phase
 
-        // let outChar = char === '\n' ? '_LB_' : char
-        // console.log(
-        //   `Char: "${outChar}" State: "${stack.phase}" @ ${this._compass.row}:${this._compass.col}`
-        // )
+        let outChar = char === '\n' ? '_LB_' : char
+        console.log(
+          `Char: "${outChar}" State: "${stack.phase}" @ ${this._compass.row}:${this._compass.col}`
+        )
       } else {
         this._stateMgr.debug()
         console.log(' '.repeat(this._compass.col + 5) + chalk.bold('^'))
@@ -372,7 +396,7 @@ class Tokenizer {
   }
 }
 
-// ... 将源对象剩余的字段直接输出至结果
+// "*" 将源对象剩余的字段直接输出至结果
 let schema = `{
   a: -type(string, wow) -raw -in(foo) -fold(bar, barz),
   aa: -type(object, {
@@ -383,29 +407,29 @@ let schema = `{
     c: -raw,
     e: -type(number)
   },
-  d: [{ e: -in(f) }],
-  *
+  d: [{ e: -in(f) }]
 }`
-let tokens = [
-  { type: 'symbol', value: '{', row: 42, col: 42, start: 0 },
-  { type: 'attr', value: 'a', row: 42, col: 42, start: 1 },
-  { type: 'verb', value: 'type', row: 42, col: 42, start: 2 },
-  { type: 'value', value: 'string, wow', row: 42, col: 42, start: 42 },
-  { type: 'attr', value: 'b', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: '{', row: 42, col: 42, start: 42 },
-  { type: 'attr', value: 'c', row: 42, col: 42, start: 42 },
-  { type: 'verb', value: 'raw', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: '}', row: 42, col: 42, start: 42 },
-  { type: 'attr', value: 'd', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: '[', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: '{', row: 42, col: 42, start: 42 },
-  { type: 'attr', value: 'e', row: 42, col: 42, start: 42 },
-  { type: 'verb', value: 'in', row: 42, col: 42, start: 42 },
-  { type: 'value', value: 'f', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: '}', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: ']', row: 42, col: 42, start: 42 },
-  { type: 'symbol', value: '}', row: 42, col: 42, start: 42 }
-]
+// let tokens = [
+//   { type: 'symbol', value: '{', row: 42, col: 42, start: 0 },
+//   { type: 'attr', value: 'a', row: 42, col: 42, start: 1 },
+//   { type: 'verb', value: 'type', row: 42, col: 42, start: 2 },
+//   { type: 'value', value: 'string, wow', row: 42, col: 42, start: 42 },
+//   { type: 'attr', value: 'b', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: '{', row: 42, col: 42, start: 42 },
+//   { type: 'attr', value: 'c', row: 42, col: 42, start: 42 },
+//   { type: 'verb', value: 'raw', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: '}', row: 42, col: 42, start: 42 },
+//   { type: 'attr', value: 'd', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: '[', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: '{', row: 42, col: 42, start: 42 },
+//   { type: 'attr', value: 'e', row: 42, col: 42, start: 42 },
+//   { type: 'verb', value: 'in', row: 42, col: 42, start: 42 },
+//   { type: 'value', value: 'f', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: '}', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: ']', row: 42, col: 42, start: 42 },
+//   { type: 'symbol', value: '}', row: 42, col: 42, start: 42 }
+// ]
 let tokenizer = new Tokenizer(schema)
-tokenizer.getTokens()
-// console.log(tokenizer.getTokens())
+tokenizer.getTokens().forEach(token => console.log(
+  `${padRight(token.type, 12)}: ${token.value}`
+))

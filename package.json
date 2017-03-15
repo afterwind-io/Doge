@@ -6,6 +6,7 @@
   "repository": "",
   "license": "",
   "scripts": {
+    "start": "node src/doge.js",
     "test": "./node_modules/.bin/karma start"
   },
   "devDependencies": {

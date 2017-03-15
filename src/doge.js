@@ -97,14 +97,15 @@ function minify (schema) {
     .join('')
 }
 
-const SYMBOL_START_BRACE = '{'
-const SYMBOL_END_BRACE = '}'
-const SYMBOL_START_BRACKET = '['
-const SYMBOL_END_BRACKET = ']'
+const SYMBOL_START_OBJECT = '{'
+const SYMBOL_END_OBJECT = '}'
+const SYMBOL_START_ARRAY = '['
+const SYMBOL_END_ARRAY = ']'
 const SYMBOL_START_VALUE = '('
 const SYMBOL_END_VALUE = ')'
 const SYMBOL_ATTR_DEF = ':'
 const SYMBOL_COMMA = ','
+const SYMBOL_HYPHEN = '-'
 const SYMBOL_LINE_BREAK = '\n'
 const SYMBOL_SPACE = ' '
 const RESERVE_TYPE = 'type'
@@ -113,16 +114,15 @@ const RESERVE_IN = 'in'
 const RESERVE_FOLD = 'fold'
 
 const RESERVED_SYMBOLS = new Set([
-  SYMBOL_START_BRACE,
-  SYMBOL_END_BRACE,
-  SYMBOL_START_BRACKET,
-  SYMBOL_END_BRACKET,
+  SYMBOL_START_OBJECT,
+  SYMBOL_END_OBJECT,
+  SYMBOL_START_ARRAY,
+  SYMBOL_END_ARRAY,
   SYMBOL_START_VALUE,
   SYMBOL_END_VALUE,
   SYMBOL_ATTR_DEF,
   SYMBOL_COMMA,
-  SYMBOL_LINE_BREAK,
-  SYMBOL_SPACE
+  SYMBOL_HYPHEN
 ])
 
 class Compass {
@@ -158,6 +158,10 @@ class Compass {
  *    attr：模板树字段定义
  *    verb：保留关键字定义
  *    value：值定义
+ *    object_start
+ *    object_end
+ *    array_start
+ *    array_end
  *    attr_start
  *    attr_end
  *    verb_start
@@ -180,18 +184,18 @@ class StateMgr {
     let error = void 0
 
     switch (char) {
-      case SYMBOL_START_BRACE:
+      case SYMBOL_START_OBJECT:
         if (state === 'start' || state === 'attr_end') {
-          this._state = 'attr_start'
+          this._state = 'object_start'
         } else if (state === 'value_start') {
           break
         } else {
           error = 'Wrong "{" difinition'
         }
         break
-      case SYMBOL_END_BRACE:
-        if (state === 'value_end' || state === 'verb_end') {
-          this._state = 'attr_start'
+      case SYMBOL_END_OBJECT:
+        if (state === 'value_end' || state === 'verb_start') {
+          this._state = 'object_end'
         } else if (state === 'value_start') {
           break
         } else {
@@ -205,6 +209,15 @@ class StateMgr {
           break
         } else {
           error = 'Wrong ":" difinition'
+        }
+        break
+      case SYMBOL_HYPHEN:
+        if (state === 'attr_end' || state === 'value_end') {
+          this._state = 'verb_start'
+        } else if (state === 'verb_start') {
+          this._state = 'verb_end'
+        } else {
+          error = 'Wrong "-" difinition'
         }
         break
       case SYMBOL_START_VALUE:
@@ -222,8 +235,8 @@ class StateMgr {
         }
         break
       case SYMBOL_COMMA:
-        if (state === 'verb_start' || state === 'value_end') {
-          this._state = 'verb_end'
+        if (state === 'verb_start' || state === 'value_end' || state === 'object_end') {
+          this._state = 'attr_start'
         } else if (state === 'value_start') {
           break
         } else {
@@ -231,21 +244,17 @@ class StateMgr {
         }
         break
       case SYMBOL_LINE_BREAK:
-        if (state === 'attr_start') {
-          break
-        } else if (state === 'value_end' || state === 'verb_start') {
-          this._state = 'attr_start'
-        } else if (state === 'value_start') {
-          break
-        } else {
-          error = 'Wrong line break'
-        }
-        break
       case SYMBOL_SPACE:
         break
       default:
-        if (state === 'attr_end' || state === 'verb_end') {
+        if (state === 'object_start') {
+          this._state = 'attr_start'
+        } else if (state === 'verb_end') {
           this._state = 'verb_start'
+        } else if (state === 'attr_start' || state === 'verb_start' || state === 'value_start') {
+          break
+        } else {
+          error = `Unrecognized char "${char}"`
         }
         break
     }
@@ -280,10 +289,17 @@ class StateDebugger {
   store (char, phase) {
     let byte
 
-    if (phase === 'attr_start') byte = chalk.white(char)
-    if (phase === 'verb_start') byte = chalk.yellow(char)
-    if (phase === 'value_start') byte = chalk.green(char)
-    if (RESERVED_SYMBOLS.has(char)) byte = chalk.red(char)
+    if (RESERVED_SYMBOLS.has(char)) {
+      byte = chalk.white(char)
+    } else if (phase === 'attr_start') {
+      byte = chalk.yellow(char)
+    } else if (phase === 'verb_start') {
+      byte = chalk.magenta(char)
+    } else if (phase === 'value_start') {
+      byte = chalk.green(char)
+    } else {
+      byte = chalk.red(char)
+    }
 
     this._info += byte
 
@@ -358,17 +374,17 @@ class Tokenizer {
 
 // ... 将源对象剩余的字段直接输出至结果
 let schema = `{
-  a: type(string, wow), raw, in(foo), fold(bar, barz)
-  aa: type(object, {
+  a: -type(string, wow) -raw -in(foo) -fold(bar, barz),
+  aa: -type(object, {
     a: 'doge'
-  })
-  ab: type(array, [1, 2, 3])
+  }),
+  ab: -type(array, [1, 2, 3]),
   b: {
-    c: raw
-    e: type(number)
-  }
-  d: [{ e: in(f) }]
-  ...
+    c: -raw,
+    e: -type(number)
+  },
+  d: [{ e: -in(f) }],
+  *
 }`
 let tokens = [
   { type: 'symbol', value: '{', row: 42, col: 42, start: 0 },

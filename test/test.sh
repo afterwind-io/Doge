@@ -1,0 +1,1 @@
+./node_modules/.bin/istanbul --color cover ./node_modules/.bin/_mocha -- -c

@@ -10,22 +10,9 @@
 // } from './config.js'
 
 const chalk = require('chalk')
-
-/**
- * 向字符串左侧填充指定长度的内容
- * @param   {String}  source       需要填充的字符串
- * @param   {Number}  num          填充后的长度
- * @param   {String}  [fill='  ']  填充的内容，默认为空格
- * @return  {String}               填充后的字符串
- */
-const padRight = function (source, num, fill = ' ') {
-  if (typeof source !== 'string') source = source.toString()
-  if (typeof num !== 'number') num = 0
-  if (source.length >= num) return source
-  if (typeof fill !== 'string') fill = fill.toString()
-
-  return source.concat(fill.repeat(num - source.length))
-}
+const { padRight } = require('./lib')
+// import chalk from 'chalk'
+// import { padRight } from './lib'
 
 const TYPE_FALLBACK = 'object'
 const TYPE_FORCE_DEF = false
@@ -145,8 +132,8 @@ class Compass {
     this._col = 0
   }
 
-  step () {
-    this._col ++
+  next (step = 1) {
+    this._col += step
   }
 
   wrap () {
@@ -155,25 +142,29 @@ class Compass {
   }
 }
 
-/**
- * 状态表：
- *    attr：模板树字段定义
- *    verb：保留关键字定义
- *    value：值定义
- *    object_start
- *    object_end
- *    array_start
- *    array_end
- *    attr_start
- *    attr_end
- *    verb_start
- *    verb_end
- *    value_start
- *    value_end
- */
+const STATE_START = 'start'
+const STATE_END = 'end'
+const STATE_ERROR = 'error'
+const STATE_OBJECT_START = 'object_start'
+const STATE_OBJECT_END = 'object_end'
+const STATE_ARRAY_START = 'array_start'
+const STATE_ARRAY_END = 'array_end'
+const STATE_ATTR_PENDING = 'attr_pending'
+const STATE_ATTR_START = 'attr_start'
+const STATE_ATTR_END = 'attr_end'
+const STATE_VERB_PENDING = 'verb_pending'
+const STATE_VERB_START = 'verb_start'
+const STATE_VERB_END = 'verb_end'
+const STATE_VALUE_PENDING = 'value_pending'
+const STATE_VALUE_START = 'value_start'
+const STATE_VALUE_END = 'value_end'
+const STATE_SPREAD = 'spread'
+
+const ERROR_NONE_AFTER_SPREAD = `There should be no content except "${SYMBOL_END_OBJECT}" after "${SYMBOL_SPREAD}". (none-after-spread)`
+
 class StateMgr {
   constructor () {
-    this._state = 'start'
+    this._state = STATE_START
     this._debugger = new StateDebugger()
   }
 
@@ -187,94 +178,103 @@ class StateMgr {
 
     switch (char) {
       case SYMBOL_START_ARRAY:
-        if (state === 'start' || state === 'attr_end') {
-          this._state = 'array_start'
-        } else if (state === 'value_start') {
+        if (state === STATE_START || state === STATE_ATTR_END) {
+          this._state = STATE_ARRAY_START
+        } else if (state === STATE_VALUE_START) {
           break
         } else {
-          error = `Wrong "${SYMBOL_START_ARRAY}" difinition`
+          error = `Unexpected token "${SYMBOL_START_ARRAY}"`
         }
         break
       case SYMBOL_END_ARRAY:
-        if (state === 'object_end') {
-          this._state = 'array_end'
-        } else if (state === 'value_start') {
+        if (state === STATE_OBJECT_END) {
+          this._state = STATE_ARRAY_END
+        } else if (state === STATE_VALUE_START) {
           break
         } else {
           error = `Wrong "${SYMBOL_END_ARRAY}" difinition`
         }
         break
       case SYMBOL_START_OBJECT:
-        if (state === 'start' || state === 'array_start' || state === 'attr_end') {
-          this._state = 'object_start'
-        } else if (state === 'value_start') {
+        if (state === STATE_START || state === STATE_ARRAY_START || state === STATE_ATTR_END) {
+          this._state = STATE_OBJECT_START
+        } else if (state === STATE_VALUE_START) {
           break
         } else {
           error = `Wrong "${SYMBOL_START_OBJECT}" difinition`
         }
         break
       case SYMBOL_END_OBJECT:
-        if (state === 'value_end' || state === 'verb_start' || state === 'array_end') {
-          this._state = 'object_end'
-        } else if (state === 'value_start') {
+        if (state === STATE_VALUE_END || state === STATE_VERB_START || state === STATE_ARRAY_END || state === STATE_SPREAD) {
+          this._state = STATE_OBJECT_END
+        } else if (state === STATE_VALUE_START) {
           break
         } else {
           error = `Wrong "${SYMBOL_END_OBJECT}" difinition`
         }
         break
       case SYMBOL_ATTR_DEF:
-        if (state === 'attr_start') {
-          this._state = 'attr_end'
-        } else if (state === 'value_start') {
+        if (state === STATE_ATTR_START) {
+          this._state = STATE_ATTR_END
+        } else if (state === STATE_VALUE_START) {
           break
         } else {
           error = `Wrong "${SYMBOL_ATTR_DEF}" difinition`
         }
         break
       case SYMBOL_HYPHEN:
-        if (state === 'attr_end' || state === 'value_end') {
-          this._state = 'verb_start'
-        } else if (state === 'verb_start') {
-          this._state = 'verb_end'
+        if (state === STATE_ATTR_END || state === STATE_VERB_START || state === STATE_VALUE_END) {
+          this._state = STATE_VERB_PENDING
         } else {
           error = `Wrong "${SYMBOL_HYPHEN}" difinition`
         }
         break
       case SYMBOL_START_VALUE:
-        if (state === 'verb_start') {
-          this._state = 'value_start'
+        if (state === STATE_VERB_START) {
+          this._state = STATE_VALUE_PENDING
         } else {
           error = `Wrong "${SYMBOL_START_VALUE}" difinition`
         }
         break
       case SYMBOL_END_VALUE:
-        if (state === 'value_start') {
-          this._state = 'value_end'
+        if (state === STATE_VALUE_START) {
+          this._state = STATE_VALUE_END
         } else {
           error = `Wrong "${SYMBOL_END_VALUE}" difinition`
         }
         break
       case SYMBOL_COMMA:
-        if (state === 'verb_start' || state === 'value_end' || state === 'object_end' || state === 'array_end') {
-          this._state = 'attr_start'
-        } else if (state === 'value_start') {
+        if (state === STATE_VERB_START || state === STATE_VALUE_END || state === STATE_OBJECT_END || state === STATE_ARRAY_END) {
+          this._state = STATE_ATTR_PENDING
+        } else if (state === STATE_VALUE_START) {
           break
         } else {
           error = `Wrong ${SYMBOL_COMMA} difinition`
         }
         break
       case SYMBOL_SPREAD:
+        if (state === STATE_OBJECT_START || state === STATE_ATTR_PENDING) {
+          this._state = STATE_SPREAD
+        } else if (state === STATE_VALUE_START) {
+          break
+        } else {
+          error = `Wrong ${SYMBOL_SPREAD} difinition`
+        }
         break
       case SYMBOL_LINE_BREAK:
       case SYMBOL_SPACE:
         break
       default:
-        if (state === 'object_start') {
-          this._state = 'attr_start'
-        } else if (state === 'verb_end') {
-          this._state = 'verb_start'
-        } else if (state === 'attr_start' || state === 'verb_start' || state === 'value_start') {
+        if (state === STATE_OBJECT_START || state === STATE_ATTR_PENDING) {
+          this._state = STATE_ATTR_START
+        } else if (state === STATE_VERB_PENDING) {
+          this._state = STATE_VERB_START
+        } else if (state === STATE_VALUE_PENDING) {
+          this._state = STATE_VALUE_START
+        } else if (state === STATE_ATTR_START || state === STATE_VERB_START || state === STATE_VALUE_START) {
           break
+        } else if (state === STATE_SPREAD) {
+          error = ERROR_NONE_AFTER_SPREAD
         } else {
           error = `Unrecognized char "${char}"`
         }
@@ -290,7 +290,7 @@ class StateMgr {
   }
 
   reset () {
-    this._state = 'start'
+    this._state = STATE_START
   }
 
   debug () {
@@ -300,12 +300,18 @@ class StateMgr {
 
 class StateDebugger {
   constructor () {
+    this._compass = new Compass()
     this.reset()
   }
 
+  $addRowHeader () {
+    this._info += `${padRight(this._compass.row, 3)}| `
+  }
+
   reset () {
-    this._info = `${padRight('1', 3)}| `
-    this._row = 1
+    this._info = ''
+    this._compass.reset()
+    this.$addRowHeader()
   }
 
   store (char, phase) {
@@ -313,11 +319,11 @@ class StateDebugger {
 
     if (RESERVED_SYMBOLS.has(char)) {
       byte = chalk.white(char)
-    } else if (phase === 'attr_start') {
+    } else if (phase === STATE_ATTR_START) {
       byte = chalk.yellow(char)
-    } else if (phase === 'verb_start') {
+    } else if (phase === STATE_VERB_START) {
       byte = chalk.magenta(char)
-    } else if (phase === 'value_start') {
+    } else if (phase === STATE_VALUE_START) {
       byte = chalk.green(char)
     } else {
       byte = chalk.red(char)
@@ -326,7 +332,8 @@ class StateDebugger {
     this._info += byte
 
     if (char === SYMBOL_LINE_BREAK) {
-      this._info += `${padRight(++this._row, 3)}| `
+      this._compass.wrap()
+      this.$addRowHeader()
     }
   }
 
@@ -343,7 +350,7 @@ class Tokenizer {
   }
 
   getTokens () {
-    let lastPhase = ''
+    let lastPhase = STATE_START
     let token = ''
     let results = []
 
@@ -358,22 +365,26 @@ class Tokenizer {
             token += char
           }
         } else {
-          results.push({
-            type: lastPhase,
-            value: token,
-            row: this._compass.row,
-            col: this._compass.col
-          })
+          if (![
+            STATE_ATTR_PENDING,
+            STATE_ATTR_END,
+            STATE_VERB_PENDING,
+            STATE_VERB_END,
+            STATE_VALUE_PENDING,
+            STATE_VALUE_END
+          ].includes(lastPhase)) {
+            results.push({
+              type: lastPhase,
+              value: token,
+              row: this._compass.row,
+              col: this._compass.col
+            })
+          }
 
           token = char
         }
 
         lastPhase = stack.phase
-
-        let outChar = char === '\n' ? '_LB_' : char
-        console.log(
-          `Char: "${outChar}" State: "${stack.phase}" @ ${this._compass.row}:${this._compass.col}`
-        )
       } else {
         this._stateMgr.debug()
         console.log(' '.repeat(this._compass.col + 5) + chalk.bold('^'))
@@ -384,7 +395,7 @@ class Tokenizer {
       }
 
       if (char !== SYMBOL_LINE_BREAK) {
-        this._compass.step()
+        this._compass.next()
       } else {
         this._compass.wrap()
       }
@@ -407,7 +418,8 @@ let schema = `{
     c: -raw,
     e: -type(number)
   },
-  d: [{ e: -in(f) }]
+  d: [{ e: -in(f) }],
+  *
 }`
 // let tokens = [
 //   { type: 'symbol', value: '{', row: 42, col: 42, start: 0 },
@@ -430,6 +442,7 @@ let schema = `{
 //   { type: 'symbol', value: '}', row: 42, col: 42, start: 42 }
 // ]
 let tokenizer = new Tokenizer(schema)
+// tokenizer.getTokens()
 tokenizer.getTokens().forEach(token => console.log(
-  `${padRight(token.type, 12)}: ${token.value}`
+  `${padRight(token.type, 14)}> ${token.value}`
 ))

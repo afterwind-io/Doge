@@ -13,8 +13,9 @@ module.exports = function (config) {
 
     // list of files / patterns to load in the browser
     files: [
-      'node_modules/babel-polyfill/dist/polyfill.js',
-      'test/test.js'
+      // 'node_modules/babel-polyfill/dist/polyfill.js',
+      'lib/**/*.js',
+      'test/**/*.js'
     ],
 
     // list of files to exclude
@@ -25,8 +26,8 @@ module.exports = function (config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
-      'src/*.js': ['webpack'],
-      'test/*.js': ['webpack']
+      'lib/**/*.js': ['webpack', 'sourcemap', 'coverage'],
+      'test/**/*.js': ['webpack', 'sourcemap']
     },
 
     webpack: {
@@ -34,14 +35,23 @@ module.exports = function (config) {
         rules: [
           { test: /\.js$/, exclude: /node_modules/, loader: 'babel-loader' }
         ]
-      }
+      },
+      devtool: '#inline-source-map',
+      stats: 'errors-only'
     },
 
     // test results reporter to use
     // possible values: 'dots', 'progress'
     // available reporters: https://npmjs.org/browse/keyword/karma-reporter
-    // reporters: ['progress', 'kjhtml'],
-    reporters: ['mocha'],
+    reporters: ['mocha', 'coverage'],
+
+    coverageReporter: {
+      dir: 'coverage/',
+      reporters: [
+        { type: 'html', subdir: 'report-html' },
+        { type: 'text', subdir: 'report-text' }
+      ]
+    },
 
     // web server port
     port: 9876,

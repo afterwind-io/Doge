@@ -24,9 +24,9 @@ exports.spread_before_content = `{
   a: -raw
 }`
 
-exports.preserved_in_value = `{
-  a: -in(a[]{}:-,*)
-}`
+// exports.preserved_in_value = `{
+//   a: -in(a[]{}:-,*)
+// }`
 
 exports.open_bracket_in_value = `{
   a: -type(string, w(w)
@@ -39,7 +39,9 @@ exports.close_bracket_in_value = `{
 exports.full_schema = `{
   a: -type(string, wow) -raw -in(foo) -fold(bar, barz),
   aa: -type(object, {
-    foo: 'doge'
+    foo: '-doge*',
+    bar: [1, 2, 3],
+    barz: { wow: 42}
   }),
   ab: -type(array, [1, 2, 3]),
   ac: -type(number, -42),

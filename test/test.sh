@@ -1,1 +1,1 @@
-./node_modules/.bin/istanbul --color cover ./node_modules/.bin/_mocha -- -c
+./node_modules/.bin/istanbul cover --report text --report lcov --color ./node_modules/.bin/_mocha -- -c

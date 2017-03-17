@@ -4,7 +4,6 @@
     "script": "./test/test.sh",
     "watch": ["lib", "test"],
     "ignore_watch": [".git", ".vscode", "node_modules"],
-    "autorestart": false,
-    "args": [ "--color" ]
+    "autorestart": false
   }]
 }

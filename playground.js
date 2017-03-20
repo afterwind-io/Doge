@@ -1,3 +1,5 @@
+const util = require('util')
+
 let Tokenizer = require('./lib/tokenizer')
 let Parser = require('./lib/parser')
 
@@ -27,7 +29,16 @@ let b = `{
   *
 }`
 
-let tokenizer = new Tokenizer(b)
+let c = `[{
+  foo: {
+    bar: -raw
+  }
+}]`
+
+let tokenizer = new Tokenizer(c)
 let parser = new Parser()
 
-console.log(parser.parse(tokenizer.getTokens()))
+console.log(util.inspect(
+  parser.parse(tokenizer.getTokens()),
+  { depth: 5, colors: true, breakLength: 1 }
+))

@@ -5,5 +5,11 @@
     "watch": ["lib", "test"],
     "ignore_watch": [".git", ".vscode", "node_modules"],
     "autorestart": false
+  }, {
+    "name": "doge_win",
+    "script": "./test/test.cmd",
+    "watch": ["lib", "test"],
+    "ignore_watch": [".git", ".vscode", "node_modules"],
+    "autorestart": false
   }]
 }

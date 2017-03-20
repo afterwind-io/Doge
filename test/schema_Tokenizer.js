@@ -36,6 +36,16 @@ exports.close_bracket_in_value = `{
   a: -type(string, w)w)
 }`
 
+exports.line_break_in_attr = `{
+  a_very_lo
+  ng_attribute: -raw
+}`
+
+exports.line_break_in_verb = `{
+  a: -ty
+  pe(string)
+}`
+
 exports.full_schema = `{
   a: -type(string, wow) -raw -in(foo) -fold(bar, barz),
   aa: -type(object, {

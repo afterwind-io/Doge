@@ -1,6 +1,12 @@
 let Tokenizer = require('./lib/tokenizer')
+let Parser = require('./lib/parser')
 
-let b = new Tokenizer(`{
+let a = new Tokenizer(`{
+  a: -ty
+  pe(string)
+}`).getTokens()
+
+let b = `{
   a: -type(string, wow) -raw -in(foo) -fold(bar, barz),
   aa: -type(object, {
     foo: '-doge*',
@@ -19,6 +25,9 @@ let b = new Tokenizer(`{
   },
   d: [{ e: -in(f) }],
   *
-}`).getTokens()
+}`
 
-console.log(b)
+let tokenizer = new Tokenizer(b)
+let parser = new Parser()
+
+console.log(parser.parse(tokenizer.getTokens()))

@@ -1,32 +1,29 @@
-class Compass {
-  constructor () {
-    this.reset()
-  }
+export default class Compass {
+  private _row: number = 0
+  private _col: number = 0
 
-  get row () {
+  get row() {
     return this._row
   }
 
-  get col () {
+  get col() {
     return this._col
   }
 
-  reset () {
+  public reset() {
     this._row = 0
     this._col = 0
     return this
   }
 
-  next (step = 1) {
+  public next(step: number = 1) {
     this._col += step
     return this
   }
 
-  wrap () {
+  public wrap() {
     this._col = 0
     this._row ++
     return this
   }
 }
-
-module.exports = Compass

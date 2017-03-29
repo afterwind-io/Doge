@@ -12,3 +12,10 @@
   let c = `[{ foo: { bar: -raw } }]`
 
   ```
+
+- raw关键字在处理时导致很多特例情况发生，是否替换至：
+  ```javascript
+
+  let a = `{ foo: -in($raw) }`
+
+  ```

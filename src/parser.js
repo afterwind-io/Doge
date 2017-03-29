@@ -13,8 +13,9 @@ class ParserDebugger extends Debugger {
 }
 
 class Parser {
-  constructor (schema) {
-
+  constructor (schema, typeDefs, foldDefs) {
+    this._typeDefs = typeDefs
+    this._foldDefs = foldDefs
   }
 
   parse (tokens) {
@@ -69,7 +70,7 @@ class Parser {
           currentVerb = token.value
 
           if (currentVerb === VERB.RAW) {
-            ref[currentAttr][currentVerb] =
+            ref[currentAttr][VERB.IN] =
               this.$verbParse(currentVerb, currentAttr)
           }
           break
@@ -98,17 +99,41 @@ class Parser {
     }
   }
 
-  $parseVerbType (value) {
+  $parseVerbType (raw) {
+    let index = raw.indexOf(',')
+    let type = index === -1
+      ? raw
+      : raw.slice(0, index)
 
+    if (this._typeDefs[type] === void 0) {
+      throw new ParserError(`Unrecognized type ${type}`)
+    }
+
+    if (index === -1) {
+      return Object.assign({}, this._typeDefs[type])
+    }
+
+    let value = raw.slice(++index)
+    if (type === 'string') {
+      value = `"${value}"`
+    }
+    value = JSON.parse(value)
+
+    return Object.assign({}, this._typeDefs[type], { fallback: value })
   }
 
   $parseVerbIn (value) {
-    // -in(a, b|c, d.e|f.g)
     return value.split(',').map(path => path.split('|'))
   }
 
   $parseVerbFold (value) {
-
+    return value.split(',').map(fn => {
+      if (fn in this._foldDefs) {
+        return this._foldDefs[fn]
+      } else {
+        throw new Parser(`Unrecognized fold function ${fn}`)
+      }
+    })
   }
 }
 

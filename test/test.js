@@ -1,4 +1,5 @@
-const Tokenizer = require('../lib/tokenizer')
+const Compass = require('../lib/compass').default
+const Tokenizer = require('../lib/token/tokenizer').default
 const expect = require('chai').expect
 const schema = require('./schema_Tokenizer')
 
@@ -13,6 +14,39 @@ const catchError = function (fn, constructor = Error) {
 }
 
 describe('D.O.G.E Unit Test', function () {
+  describe('--Compass', function () {
+    let compass = new Compass()
+
+    it('Should start with 0:0', function () {
+      expect(compass.row).equal(0)
+      expect(compass.col).equal(0)
+    })
+
+    it('Should arrive at 0:1 when call next()', function () {
+      compass.next()
+      expect(compass.row).equal(0)
+      expect(compass.col).equal(1)
+    })
+
+    it('Should arrive at 0:3 when call next(2)', function () {
+      compass.next(2)
+      expect(compass.row).equal(0)
+      expect(compass.col).equal(3)
+    })
+
+    it('Should arrive at 1:0 when call wrap()', function () {
+      compass.wrap()
+      expect(compass.row).equal(1)
+      expect(compass.col).equal(0)
+    })
+
+    it('Should arrive back at 0:0 after call reset()', function () {
+      compass.reset()
+      expect(compass.row).equal(0)
+      expect(compass.col).equal(0)
+    })
+  })
+
   describe('--Tokenizer', function () {
     let tokenizer = new Tokenizer('')
 

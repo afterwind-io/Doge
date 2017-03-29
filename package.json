@@ -25,6 +25,8 @@
     "cover": "./node_modules/.bin/istanbul cover ./lib/doge.js"
   },
   "devDependencies": {
+    "@types/chalk": "^0.4.31",
+    "@types/node": "^7.0.12",
     "babel-core": "^6.22.1",
     "babel-loader": "^6.4.0",
     "babel-polyfill": "^6.22.0",
@@ -48,5 +50,8 @@
     "karma-webpack": "^2.0.2",
     "mocha": "^3.2.0",
     "webpack": "^2.2.1"
+  },
+  "dependencies": {
+    "typescript": "^2.2.2"
   }
 }
